@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archive — Streamer</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="dark">
+<div id="app">
+  <header class="topbar">
+    <span class="logo">Streamer</span>
+    <nav>
+      <a href="/admin/">Admin</a>
+      <a href="/archive/" class="active">Archive</a>
+    </nav>
+    <span id="user-name" class="user-chip"></span>
+    <a href="/auth/logout" class="btn btn-sm btn-ghost">Logout</a>
+  </header>
+
+  <main class="archive-wrap">
+    <h1>Archive</h1>
+    <div id="archive-list" class="archive-list">
+      <div class="loading">Loading...</div>
+    </div>
+  </main>
+</div>
+
+<!-- Share modal reused -->
+<div id="share-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Share Recording</h3>
+    <div class="form-row">
+      <input id="share-slug-input" type="text" placeholder="Custom slug (optional)">
+      <input id="share-password-input" type="text" placeholder="Password (optional)">
+      <button id="btn-create-share" class="btn btn-primary">Create Link</button>
+    </div>
+    <div id="share-result" class="hidden">
+      <div class="share-url-box">
+        <input id="share-url-display" type="text" readonly>
+        <button id="btn-copy-url" class="btn btn-sm">Copy</button>
+      </div>
+    </div>
+    <button id="btn-modal-close" class="btn btn-ghost" style="margin-top:1rem">Close</button>
+  </div>
+</div>
+
+<script src="/js/archive.js"></script>
+</body>
+</html>

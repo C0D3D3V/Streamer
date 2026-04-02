@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watch</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="dark">
+<div id="app">
+  <header class="topbar">
+    <span class="logo">Streamer</span>
+    <span id="stream-name" class="stream-title"></span>
+  </header>
+
+  <main class="player-wrap">
+    <div class="video-container">
+      <video id="video" playsinline controls></video>
+      <div id="overlay-msg" class="overlay-msg hidden"></div>
+    </div>
+
+    <div class="controls-bar">
+      <div class="left-controls">
+        <label for="res-select">Quality</label>
+        <select id="res-select">
+          <option value="master">Auto</option>
+          <option value="1080p">1080p</option>
+          <option value="720p">720p</option>
+          <option value="480p">480p</option>
+          <option value="320p">320p</option>
+        </select>
+      </div>
+      <div class="center-controls">
+        <button id="btn-live" class="btn btn-live hidden">⬤ Go Live</button>
+      </div>
+      <div class="right-controls">
+        <span id="live-badge" class="badge-live hidden">● LIVE</span>
+        <span id="vod-badge" class="badge-vod hidden">VOD</span>
+        <a id="btn-download" class="btn btn-sm hidden" href="#">Download MP4</a>
+      </div>
+    </div>
+
+    <div id="resume-bar" class="resume-bar hidden">
+      <span id="resume-msg"></span>
+      <button id="btn-resume" class="btn btn-sm">Resume</button>
+      <button id="btn-dismiss" class="btn btn-sm btn-ghost">Start over</button>
+    </div>
+  </main>
+</div>
+<script src="/js/hls.min.js"></script>
+<script src="/js/viewer.js"></script>
+<script>
+  // shared page: derive slug from URL path /s/<slug>
+  window.SHARE_SLUG = location.pathname.split('/')[2];
+</script>
+</body>
+</html>

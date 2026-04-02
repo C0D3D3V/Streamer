@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Streamer</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="dark">
+<div id="app">
+  <header class="topbar">
+    <span class="logo">Streamer</span>
+    <nav>
+      <a href="/admin/" class="active">Admin</a>
+      <a href="/archive/">Archive</a>
+    </nav>
+    <span id="user-name" class="user-chip"></span>
+    <a href="/auth/logout" class="btn btn-sm btn-ghost">Logout</a>
+  </header>
+
+  <main class="admin-wrap">
+    <!-- Start stream panel -->
+    <section class="card">
+      <h2>Start New Stream</h2>
+      <div class="form-row">
+        <input id="stream-name-input" type="text" placeholder="Stream name (optional)">
+        <button id="btn-start" class="btn btn-primary">Start Stream</button>
+      </div>
+    </section>
+
+    <!-- Active stream panel (hidden until stream starts) -->
+    <section id="active-panel" class="card hidden">
+      <div class="active-header">
+        <h2>Live: <span id="active-name"></span></h2>
+        <span class="badge-live">● LIVE</span>
+        <button id="btn-stop" class="btn btn-danger">Stop Stream</button>
+      </div>
+
+      <div class="share-panel">
+        <h3>Share Link</h3>
+        <div class="form-row">
+          <input id="share-slug-input" type="text" placeholder="Custom slug (optional)">
+          <input id="share-password-input" type="text" placeholder="Password (optional)">
+          <button id="btn-create-share" class="btn">Create Link</button>
+        </div>
+        <ul id="share-list" class="share-list"></ul>
+      </div>
+    </section>
+
+    <!-- Streams list -->
+    <section class="card">
+      <h2>All Streams</h2>
+      <div id="streams-list" class="streams-list">
+        <div class="loading">Loading...</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Share modal -->
+<div id="share-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Share Link Created</h3>
+    <div class="share-url-box">
+      <input id="share-url-display" type="text" readonly>
+      <button id="btn-copy-url" class="btn btn-sm">Copy</button>
+    </div>
+    <button id="btn-modal-close" class="btn btn-ghost">Close</button>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>

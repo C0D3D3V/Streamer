@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enter Password</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="dark center-page">
+<div class="unlock-card">
+  <div class="logo-lg">Streamer</div>
+  <h2>This stream is password protected</h2>
+  <form id="unlock-form">
+    <input id="password" type="password" placeholder="Password" autofocus autocomplete="current-password">
+    <div id="error-msg" class="error-msg hidden">Incorrect password</div>
+    <button type="submit" class="btn btn-primary btn-full">Watch</button>
+  </form>
+</div>
+<script>
+  const slug = location.pathname.split('/')[2];
+  document.getElementById('unlock-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pw = document.getElementById('password').value;
+    const res = await fetch(`/s/${slug}/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    });
+    if (res.ok) {
+      location.href = `/s/${slug}`;
+    } else {
+      document.getElementById('error-msg').classList.remove('hidden');
+    }
+  });
+</script>
+</body>
+</html>

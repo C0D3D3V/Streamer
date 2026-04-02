@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Streamer — Camera</title>
+<link rel="stylesheet" href="/css/app.css">
+<link rel="manifest" href="/streamer/manifest.json">
+</head>
+<body class="dark streamer-body">
+<div id="app">
+  <header class="topbar compact">
+    <span class="logo">Streamer</span>
+    <span id="status-chip" class="status-chip status-idle">Idle</span>
+  </header>
+
+  <main class="streamer-main">
+    <div class="preview-wrap">
+      <video id="preview" autoplay playsinline muted></video>
+      <div id="rec-indicator" class="rec-indicator hidden">⬤ REC</div>
+    </div>
+
+    <div class="streamer-controls">
+      <!-- Stream selection -->
+      <div class="form-group">
+        <label>Stream</label>
+        <div class="form-row">
+          <select id="stream-select">
+            <option value="">-- Select active stream --</option>
+          </select>
+          <button id="btn-refresh-streams" class="btn btn-sm btn-ghost" title="Refresh">&#8635;</button>
+        </div>
+      </div>
+
+      <!-- Camera quality -->
+      <div class="form-group">
+        <label>Camera Quality</label>
+        <select id="quality-select">
+          <option value="1080">1080p</option>
+          <option value="720" selected>720p</option>
+          <option value="480">480p</option>
+        </select>
+      </div>
+
+      <!-- Camera facing -->
+      <div class="form-group">
+        <label>Camera</label>
+        <select id="camera-select">
+          <option value="environment">Back</option>
+          <option value="user">Front</option>
+        </select>
+      </div>
+
+      <!-- Mic volume (gain) -->
+      <div class="form-group">
+        <label>
+          Mic Volume
+          <span id="gain-value">100%</span>
+        </label>
+        <input type="range" id="gain-slider" min="0" max="400" value="100" step="5">
+        <div class="gain-hints">
+          <span>Mute</span>
+          <span>Normal</span>
+          <span>Boost 4×</span>
+        </div>
+      </div>
+
+      <!-- Start/Stop -->
+      <div class="btn-row">
+        <button id="btn-stream" class="btn btn-primary btn-lg btn-full">Start Streaming</button>
+      </div>
+
+      <div id="stream-stats" class="stream-stats hidden">
+        <span>Duration: <strong id="stat-duration">0:00</strong></span>
+        <span>Sent: <strong id="stat-bytes">0 MB</strong></span>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/js/streamer.js"></script>
+</body>
+</html>
