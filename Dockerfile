@@ -1,4 +1,4 @@
-FROM node:lts-alpine
+FROM node:20-alpine3.19
 
 # Runtime deps
 RUN apk add --no-cache \
@@ -11,24 +11,15 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Build deps - C++20 compiler + node-gyp deps
+# Minimal build deps (Node 20 works better)
 RUN apk add --no-cache --virtual .build-deps \
     python3 \
-    py3-setuptools \
     make \
-    g++ \
-    gcc \
-    pkgconfig \
-    libstdc++
-
-# Force C++20 standard for Node 24 V8 headers
-ENV CXXFLAGS="-std=c++20"
+    g++
 
 COPY package.json package-lock.json* ./
-ENV PYTHON=/usr/bin/python3
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
-# Clean build deps
 RUN apk del .build-deps
 
 # Copy source
