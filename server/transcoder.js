@@ -19,27 +19,32 @@ function probeEncoder(name) {
 }
 
 function probeVaapi(device) {
-  // Try a quick 1-frame encode to validate VAAPI works on this device
+  // Use 320x240 — some VAAPI encoders reject frames smaller than ~128x128
   const result = spawnSync('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error',
+    '-hide_banner', '-loglevel', 'warning',
     '-vaapi_device', device,
-    '-f', 'lavfi', '-i', 'color=black:s=64x64:d=0.1',
+    '-f', 'lavfi', '-i', 'color=black:s=320x240:d=0.1',
     '-vf', 'format=nv12,hwupload',
-    '-c:v', 'h264_vaapi', '-frames:v', '1',
+    '-c:v', 'h264_vaapi', '-b:v', '500k', '-frames:v', '1',
     '-f', 'null', '-',
-  ], { encoding: 'utf8', timeout: 5000 });
-  return result.status === 0;
+  ], { encoding: 'utf8', timeout: 8000 });
+  if (result.status !== 0) {
+    console.warn('[transcoder] VAAPI probe failed:', (result.stderr || '').trim().split('\n').pop());
+    return false;
+  }
+  return true;
 }
 
 function probeQsv() {
-  // Use a full HD frame — software QSV (CPU fallback) accepts tiny frames but
-  // fails on larger ones, while real hardware QSV works at any resolution.
-  // Use loglevel=warning so MFX session errors appear in stderr even on exit 0.
+  // Mirror actual streaming flags (look_ahead + async_depth) to trigger the
+  // same hardware MFX init path that fails on machines without real QSV support.
   const result = spawnSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'warning',
     '-f', 'lavfi', '-i', 'color=black:s=1280x720:d=0.1',
     '-vf', 'format=nv12',
-    '-c:v', 'h264_qsv', '-b:v', '2500k', '-frames:v', '1',
+    '-c:v', 'h264_qsv', '-b:v', '2500k', '-maxrate', '2500k', '-bufsize', '5000k',
+    '-look_ahead', '0', '-async_depth', '1',
+    '-frames:v', '1',
     '-f', 'null', '-',
   ], { encoding: 'utf8', timeout: 8000 });
 
@@ -47,9 +52,9 @@ function probeQsv() {
     console.warn('[transcoder] QSV probe failed (exit):', (result.stderr || '').trim().split('\n').pop());
     return false;
   }
-  // Reject soft failures: software QSV may exit 0 but emit MFX session warnings
+  // Reject soft failures: MFX session errors may appear in stderr even on exit 0
   if (/MFX|internal.*session|unsupported/i.test(result.stderr || '')) {
-    console.warn('[transcoder] QSV probe: MFX warning in stderr — hardware QSV unavailable');
+    console.warn('[transcoder] QSV probe: MFX warning — hardware QSV unavailable');
     return false;
   }
   return true;
