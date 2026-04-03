@@ -14,6 +14,7 @@ WORKDIR /app
 # Build deps needed by node-gyp for native modules like better-sqlite3
 RUN apk add --no-cache --virtual .build-deps \
     python3 \
+    py3-setuptools \
     make \
     g++ \
     pkgconfig
