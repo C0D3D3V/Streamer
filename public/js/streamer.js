@@ -63,10 +63,41 @@ async function startPreview() {
       },
     });
     preview.srcObject = mediaStream;
+    preview.addEventListener('loadedmetadata', applyPreviewRotation, { once: true });
   } catch (err) {
     setStatus('Camera error', 'error');
     console.error(err);
   }
+}
+
+function applyPreviewRotation() {
+  const vw = preview.videoWidth;
+  const vh = preview.videoHeight;
+  if (!vw || !vh) return;
+
+  const phoneLandscape = window.innerWidth > window.innerHeight;
+  const videoLandscape = vw > vh;
+
+  // Reset inline styles first
+  preview.style.cssText = '';
+
+  if (phoneLandscape === videoLandscape) return; // orientations match — nothing to do
+
+  // Video orientation doesn't match the phone — rotate it to compensate.
+  // landscape-secondary means the phone was rotated the other way.
+  const secondary = screen.orientation?.type?.includes('secondary');
+  const deg = phoneLandscape ? (secondary ? -90 : 90) : (secondary ? 90 : -90);
+
+  const wrap = preview.parentElement;
+  // After rotation the video's layout width/height are swapped, so set them
+  // to the container's h×w so the rotated result fills w×h exactly.
+  preview.style.position  = 'absolute';
+  preview.style.top       = '50%';
+  preview.style.left      = '50%';
+  preview.style.width     = wrap.clientHeight + 'px';
+  preview.style.height    = wrap.clientWidth  + 'px';
+  preview.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`;
+  preview.style.objectFit = 'cover';
 }
 
 cameraSelect.addEventListener('change', () => { if (!streaming) startPreview(); });
