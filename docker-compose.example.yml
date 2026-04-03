@@ -1,7 +1,6 @@
 services:
   streamer:
-    build: .
-    # image: streamer:latest      # use this after building
+    image: ghcr.io/c0d3d3v/streamer:latest
     container_name: streamer
     restart: unless-stopped
     # ports:
