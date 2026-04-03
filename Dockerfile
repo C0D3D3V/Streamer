@@ -1,6 +1,6 @@
 FROM node:lts-alpine
 
-# Install FFmpeg + Intel VA-API / QSV runtime libs
+# Runtime deps
 RUN apk add --no-cache \
     ffmpeg \
     su-exec \
@@ -11,19 +11,30 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Install dependencies first (layer cache)
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+# Build deps needed by node-gyp for native modules like better-sqlite3
+RUN apk add --no-cache --virtual .build-deps \
+    python3 \
+    make \
+    g++ \
+    pkgconfig
 
-# Copy source
+# Make npm/node-gyp explicitly use Python 3
+ENV PYTHON=/usr/bin/python3
+
+COPY package.json package-lock.json* ./
+RUN npm config set python /usr/bin/python3 \
+    && npm install --omit=dev \
+    && npm config delete python
+
+# Remove build deps after native modules are compiled
+RUN apk del .build-deps
+
 COPY . .
 
-# Entrypoint handles PUID/PGID/UMASK
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
-
 VOLUME ["/data"]
 
 ENTRYPOINT ["docker-entrypoint.sh"]
