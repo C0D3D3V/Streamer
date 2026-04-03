@@ -168,6 +168,13 @@ input[type="range"] { padding: 4px 0; cursor: pointer; accent-color: var(--accen
 .unlock-card form { display: flex; flex-direction: column; gap: 10px; }
 .error-msg { color: var(--danger); font-size: 13px; }
 
+/* ── Confirm dialog ──────────────────────────────────────────────────────── */
+.confirm-modal .modal-content { max-width: 380px; }
+.confirm-modal h3 { font-size: 16px; }
+.confirm-modal p { font-size: 14px; color: var(--muted); line-height: 1.5; }
+.confirm-modal p strong { color: var(--text); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .modal {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6);

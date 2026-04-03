@@ -120,10 +120,34 @@ async function deleteStream(id) {
   const sizeRes = await fetch(`/api/admin/streams/${id}/size`).catch(() => null);
   const { bytes = 0 } = sizeRes && sizeRes.ok ? await sizeRes.json() : {};
   const label = bytes > 0 ? formatBytes(bytes) : 'unknown size';
-  if (!confirm(`Delete this recording and all its files (${label})? This cannot be undone.`)) return;
+  const ok = await showConfirm(`This will permanently delete the recording and all its files (<strong>${label}</strong>).`);
+  if (!ok) return;
   const res = await fetch(`/api/admin/streams/${id}`, { method: 'DELETE' });
   if (!res.ok) { alert((await res.json()).error || 'Delete failed'); return; }
   await loadArchive();
+}
+
+function showConfirm(htmlMessage) {
+  return new Promise(resolve => {
+    document.getElementById('confirm-msg').innerHTML = htmlMessage;
+    const modal = document.getElementById('confirm-modal');
+    modal.classList.remove('hidden');
+    const ok     = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    const done = result => {
+      modal.classList.add('hidden');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      resolve(result);
+    };
+    const onOk       = () => done(true);
+    const onCancel   = () => done(false);
+    const onBackdrop = e => { if (e.target === modal) done(false); };
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+  });
 }
 
 function formatBytes(bytes) {
