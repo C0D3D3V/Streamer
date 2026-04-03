@@ -94,7 +94,7 @@ input[type="range"] { padding: 4px 0; cursor: pointer; accent-color: var(--accen
   position: relative; background: #000; border-radius: var(--radius);
   overflow: hidden; aspect-ratio: 16/9;
 }
-.video-container video { width: 100%; height: 100%; display: block; }
+.video-container video { width: 100%; height: 100%; display: block; object-fit: contain; }
 
 .overlay-msg {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -188,7 +188,7 @@ input[type="range"] { padding: 4px 0; cursor: pointer; accent-color: var(--accen
 .preview-wrap {
   position: relative; flex: 1; background: #000; overflow: hidden; min-height: 0;
 }
-.preview-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.preview-wrap video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .rec-indicator {
   position: absolute; top: 12px; left: 12px;
   background: rgba(0,0,0,0.6); color: var(--live); font-size: 13px; font-weight: 700;

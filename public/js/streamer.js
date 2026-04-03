@@ -231,6 +231,24 @@ function setStatus(text, type) {
   statusChip.className = `status-chip status-${type}`;
 }
 
+// ── Orientation change → reconnect ────────────────────────────────────────────
+if (screen.orientation) {
+  screen.orientation.addEventListener('change', async () => {
+    if (!streaming) {
+      // Just restart the preview with the new orientation
+      startPreview();
+      return;
+    }
+    // While live: stop → restart preview → reconnect WebSocket
+    // The server skips finalization if a new connection arrives within 3 s.
+    setStatus('Reconnecting…', 'idle');
+    stopStreaming();
+    await startPreview();
+    // Small delay so the browser can capture the first rotated frame before we send
+    setTimeout(() => startStreaming(), 300);
+  });
+}
+
 // ── Screen wake lock (keep screen on while streaming) ────────────────────────
 let wakeLock = null;
 document.addEventListener('visibilitychange', async () => {

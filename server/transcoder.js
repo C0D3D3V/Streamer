@@ -89,6 +89,7 @@ function hlsOutputArgs(r, hlsDir) {
 // Build full FFmpeg args for VAAPI using filter_complex:
 // single hwupload → split N ways → scale_vaapi per output.
 // This avoids the surface exhaustion that happens with N separate hwupload instances.
+// Scale uses the long edge as the constraint so both landscape and portrait input work.
 function buildVaapiArgs(streamId) {
   const snap16 = n => Math.floor(n / 16) * 16;
   const n = config.resolutions.length;
@@ -97,9 +98,10 @@ function buildVaapiArgs(streamId) {
   const fcParts = [`[0:v]format=nv12,hwupload=extra_hw_frames=64,split=${n}${splitTags}`];
   for (let i = 0; i < n; i++) {
     const r = config.resolutions[i];
-    const vw = snap16(r.width);
-    const vh = snap16(r.height);
-    fcParts.push(`[vsplit${i}]scale_vaapi=w=${vw}:h=${vh}:force_original_aspect_ratio=decrease[vout${i}]`);
+    const long = snap16(Math.max(r.width, r.height));
+    // if(gte(iw,ih), ...) = landscape branch; else portrait branch
+    // -16 tells scale_vaapi to round the auto-computed side to a multiple of 16
+    fcParts.push(`[vsplit${i}]scale_vaapi=w='if(gte(iw,ih),${long},-16)':h='if(gte(iw,ih),-16,${long})'[vout${i}]`);
   }
 
   const outputArgs = config.resolutions.flatMap((r, i) => {
@@ -126,7 +128,10 @@ function buildVaapiArgs(streamId) {
 // Build per-resolution output args for software encoders (libx264, qsv)
 function buildOutputArgs(r, hlsDir) {
   const bufsize     = `${parseInt(r.videoBitrate) * 2}k`;
-  const scaleFilter = `scale=${r.width}:${r.height}:force_original_aspect_ratio=decrease,pad=${r.width}:${r.height}:(ow-iw)/2:(oh-ih)/2`;
+  // Scale to the long edge; -2 keeps the other side even and aspect-correct.
+  // Works for both landscape and portrait without forced black-bar padding.
+  const long = Math.max(r.width, r.height);
+  const scaleFilter = `scale=w='if(gte(iw,ih),${long},-2)':h='if(gte(iw,ih),-2,${long})'`;
   const audioArgs   = ['-c:a', 'aac', '-b:a', r.audioBitrate, '-ar', '44100'];
 
   if (resolvedEncoder === 'qsv') {
@@ -175,7 +180,8 @@ function buildMasterPlaylist() {
   const lines = ['#EXTM3U', '#EXT-X-VERSION:3', ''];
   for (const r of config.resolutions) {
     const bw = parseInt(r.videoBitrate) * 1000 + parseInt(r.audioBitrate) * 1000;
-    lines.push(`#EXT-X-STREAM-INF:BANDWIDTH=${bw},RESOLUTION=${r.width}x${r.height},NAME="${r.name}"`);
+    // RESOLUTION omitted: value depends on stream orientation (landscape vs portrait)
+    lines.push(`#EXT-X-STREAM-INF:BANDWIDTH=${bw},NAME="${r.name}"`);
     lines.push(`${r.name}/playlist.m3u8`);
   }
   return lines.join('\n');

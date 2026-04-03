@@ -32,11 +32,12 @@ function handleIngestSocket(ws, streamId) {
     activeStreams.delete(streamId);
     transcoder.stopTranscoding(streamId);
 
-    // Finalize after FFmpeg has had time to flush
+    // Finalize after FFmpeg has had time to flush.
+    // Skip if a new connection for the same stream has already started (orientation reconnect).
     setTimeout(() => {
+      if (activeStreams.has(streamId)) return;
       transcoder.finalizeHls(streamId);
       db.endStream(streamId);
-      // Queue MP4 conversion
       require('./converter').queueConversion(streamId);
     }, 3000);
   });
