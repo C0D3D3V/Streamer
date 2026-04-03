@@ -32,20 +32,27 @@ function probeVaapi(device) {
 }
 
 function probeQsv() {
-  // Try h264_qsv without explicit init_hw_device — rely on LIBVA_DRIVER_NAME=iHD
-  // auto-detection. The vaapi=va@qsv bridge consistently fails on some iGPUs even
-  // when VAAPI itself works, so we let FFmpeg's MFX auto-detect handle device init.
+  // Use a full HD frame — software QSV (CPU fallback) accepts tiny frames but
+  // fails on larger ones, while real hardware QSV works at any resolution.
+  // Use loglevel=warning so MFX session errors appear in stderr even on exit 0.
   const result = spawnSync('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error',
-    '-f', 'lavfi', '-i', 'color=black:s=64x64:d=0.1',
+    '-hide_banner', '-loglevel', 'warning',
+    '-f', 'lavfi', '-i', 'color=black:s=1280x720:d=0.1',
     '-vf', 'format=nv12',
-    '-c:v', 'h264_qsv', '-frames:v', '1',
+    '-c:v', 'h264_qsv', '-b:v', '2500k', '-frames:v', '1',
     '-f', 'null', '-',
-  ], { encoding: 'utf8', timeout: 5000 });
+  ], { encoding: 'utf8', timeout: 8000 });
+
   if (result.status !== 0) {
-    console.warn('[transcoder] QSV probe failed:', (result.stderr || '').trim().split('\n').pop());
+    console.warn('[transcoder] QSV probe failed (exit):', (result.stderr || '').trim().split('\n').pop());
+    return false;
   }
-  return result.status === 0;
+  // Reject soft failures: software QSV may exit 0 but emit MFX session warnings
+  if (/MFX|internal.*session|unsupported/i.test(result.stderr || '')) {
+    console.warn('[transcoder] QSV probe: MFX warning in stderr — hardware QSV unavailable');
+    return false;
+  }
+  return true;
 }
 
 async function detectEncoder() {
