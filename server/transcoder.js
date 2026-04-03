@@ -31,21 +31,17 @@ function probeVaapi(device) {
   return result.status === 0;
 }
 
-function probeQsv(device) {
-  // On Linux, QSV must be backed by VAAPI. Init VAAPI first, then QSV on top of it.
-  // Use N outputs to mirror real workload — single-output probes can pass even when
-  // the MFX session limit is hit by concurrent encoders.
-  const n = require('./config').resolutions.length;
-  const outputs = Array.from({ length: n }, () => [
-    '-vf', 'format=nv12', '-c:v', 'h264_qsv', '-frames:v', '1', '-f', 'null', '-',
-  ]).flat();
+function probeQsv() {
+  // Try h264_qsv without explicit init_hw_device — rely on LIBVA_DRIVER_NAME=iHD
+  // auto-detection. The vaapi=va@qsv bridge consistently fails on some iGPUs even
+  // when VAAPI itself works, so we let FFmpeg's MFX auto-detect handle device init.
   const result = spawnSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error',
-    '-init_hw_device', `vaapi=va:${device}`,
-    '-init_hw_device', 'qsv=hw@va',
-    '-f', 'lavfi', '-i', `color=black:s=64x64:d=0.1:r=1`,
-    ...outputs,
-  ], { encoding: 'utf8', timeout: 10000 });
+    '-f', 'lavfi', '-i', 'color=black:s=64x64:d=0.1',
+    '-vf', 'format=nv12',
+    '-c:v', 'h264_qsv', '-frames:v', '1',
+    '-f', 'null', '-',
+  ], { encoding: 'utf8', timeout: 5000 });
   if (result.status !== 0) {
     console.warn('[transcoder] QSV probe failed:', (result.stderr || '').trim().split('\n').pop());
   }
@@ -60,20 +56,20 @@ async function detectEncoder() {
     return requested;
   }
 
-  // Try QSV first (Intel Quick Sync — lowest CPU usage)
-  const hasQsvEncoder = probeEncoder('h264_qsv');
-  console.log(`[transcoder] h264_qsv in ffmpeg: ${hasQsvEncoder}`);
-  if (hasQsvEncoder && probeQsv(config.vaapiDevice)) {
-    console.log('[transcoder] Auto-detected: h264_qsv (Intel Quick Sync)');
-    return 'qsv';
-  }
-
-  // Try VAAPI (VA-API on Linux — also hardware, most Intel iGPUs support this)
+  // Try VAAPI first — most reliable on Linux Intel iGPUs
   const hasVaapiEncoder = probeEncoder('h264_vaapi');
   console.log(`[transcoder] h264_vaapi in ffmpeg: ${hasVaapiEncoder}`);
   if (hasVaapiEncoder && probeVaapi(config.vaapiDevice)) {
     console.log(`[transcoder] Auto-detected: h264_vaapi (${config.vaapiDevice})`);
     return 'vaapi';
+  }
+
+  // Try QSV (requires working MFX/oneVPL runtime)
+  const hasQsvEncoder = probeEncoder('h264_qsv');
+  console.log(`[transcoder] h264_qsv in ffmpeg: ${hasQsvEncoder}`);
+  if (hasQsvEncoder && probeQsv()) {
+    console.log('[transcoder] Auto-detected: h264_qsv (Intel Quick Sync)');
+    return 'qsv';
   }
 
   console.log('[transcoder] Falling back to libx264 (software)');
@@ -113,9 +109,12 @@ function buildVaapiArgs(streamId) {
   for (let i = 0; i < n; i++) {
     const r = config.resolutions[i];
     const long = snap16(Math.max(r.width, r.height));
-    // if(gte(iw,ih), ...) = landscape branch; else portrait branch
-    // -16 tells scale_vaapi to round the auto-computed side to a multiple of 16
-    fcParts.push(`[vsplit${i}]scale_vaapi=w='if(gte(iw,ih),${long},-16)':h='if(gte(iw,ih),-16,${long})'[vout${i}]`);
+    // scale_vaapi does NOT support the -N auto-size shorthand that the software
+    // scale filter uses. We must compute the constrained side explicitly.
+    // trunc(long * iw/ih / 16)*16  →  the other side, snapped to a multiple of 16.
+    const wExpr = `if(gte(iw,ih),${long},trunc(${long}*iw/ih/16)*16)`;
+    const hExpr = `if(gte(iw,ih),trunc(${long}*ih/iw/16)*16,${long})`;
+    fcParts.push(`[vsplit${i}]scale_vaapi=w='${wExpr}':h='${hExpr}'[vout${i}]`);
   }
 
   const outputArgs = config.resolutions.flatMap((r, i) => {
@@ -217,10 +216,6 @@ function startTranscoding(streamId, inputStream, onHwFailure) {
     ? buildVaapiArgs(streamId)
     : [
         '-loglevel', 'warning',
-        ...(resolvedEncoder === 'qsv' ? [
-          '-init_hw_device', `vaapi=va:${config.vaapiDevice}`,
-          '-init_hw_device', 'qsv=hw@va',
-        ] : []),
         '-i', 'pipe:0',
         ...config.resolutions.flatMap(r => buildOutputArgs(r, getStreamHlsDir(streamId, r.name))),
       ];
