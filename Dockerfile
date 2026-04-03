@@ -1,28 +1,28 @@
-FROM node:20-alpine3.19
+FROM node:20-slim
 
-# Runtime deps
-RUN apk add --no-cache \
-    ffmpeg \
-    su-exec \
-    libva \
-    libva-intel-driver \
-    intel-media-driver \
-    mesa-va-gallium
+# Add non-free components for Intel media driver
+RUN sed -i 's/Components: main$/Components: main contrib non-free non-free-firmware/' \
+        /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        intel-media-va-driver-non-free \
+        libvpl2 \
+        gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+# iHD is the correct VAAPI driver for Gen 9+ Intel (Skylake and newer)
+ENV LIBVA_DRIVER_NAME=iHD
 
 WORKDIR /app
 
-# Minimal build deps (Node 20 works better)
-RUN apk add --no-cache --virtual .build-deps \
-    python3 \
-    make \
-    g++
-
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 make g++ \
+    && npm ci --omit=dev \
+    && apt-get purge -y python3 make g++ \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apk del .build-deps
-
-# Copy source
 COPY . .
 
 COPY docker-entrypoint.sh /usr/local/bin/

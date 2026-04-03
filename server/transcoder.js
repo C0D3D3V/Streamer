@@ -72,20 +72,10 @@ async function init() {
 
 // ── FFmpeg arg builders ────────────────────────────────────────────────────────
 
-function globalInputArgs() {
-  if (resolvedEncoder === 'vaapi') {
-    return ['-vaapi_device', config.vaapiDevice];
-  }
-  return [];
-}
-
-// Build per-resolution output args for one resolution
-function buildOutputArgs(r, hlsDir) {
-  const playlist    = path.join(hlsDir, 'playlist.m3u8');
-  const segPattern  = path.join(hlsDir, 'seg%05d.ts');
-  const bufsize     = `${parseInt(r.videoBitrate) * 2}k`;
-
-  const hlsArgs = [
+function hlsOutputArgs(r, hlsDir) {
+  const playlist   = path.join(hlsDir, 'playlist.m3u8');
+  const segPattern = path.join(hlsDir, 'seg%05d.ts');
+  return [
     '-f', 'hls',
     '-hls_time', String(config.hls.segmentDuration),
     '-hls_list_size', String(config.hls.listSize),
@@ -94,13 +84,50 @@ function buildOutputArgs(r, hlsDir) {
     '-hls_segment_filename', segPattern,
     playlist,
   ];
+}
 
-  const audioArgs = [
-    '-c:a', 'aac', '-b:a', r.audioBitrate, '-ar', '44100',
+// Build full FFmpeg args for VAAPI using filter_complex:
+// single hwupload → split N ways → scale_vaapi per output.
+// This avoids the surface exhaustion that happens with N separate hwupload instances.
+function buildVaapiArgs(streamId) {
+  const snap16 = n => Math.floor(n / 16) * 16;
+  const n = config.resolutions.length;
+
+  const splitTags = config.resolutions.map((_, i) => `[vsplit${i}]`).join('');
+  const fcParts = [`[0:v]format=nv12,hwupload=extra_hw_frames=64,split=${n}${splitTags}`];
+  for (let i = 0; i < n; i++) {
+    const r = config.resolutions[i];
+    const vw = snap16(r.width);
+    const vh = snap16(r.height);
+    fcParts.push(`[vsplit${i}]scale_vaapi=w=${vw}:h=${vh}:force_original_aspect_ratio=decrease[vout${i}]`);
+  }
+
+  const outputArgs = config.resolutions.flatMap((r, i) => {
+    const hlsDir = getStreamHlsDir(streamId, r.name);
+    const bufsize = `${parseInt(r.videoBitrate) * 2}k`;
+    return [
+      '-map', `[vout${i}]`, '-map', '0:a:0',
+      '-c:v', 'h264_vaapi',
+      '-b:v', r.videoBitrate, '-maxrate', r.videoBitrate, '-bufsize', bufsize,
+      '-c:a', 'aac', '-b:a', r.audioBitrate, '-ar', '44100',
+      ...hlsOutputArgs(r, hlsDir),
+    ];
+  });
+
+  return [
+    '-loglevel', 'warning',
+    '-vaapi_device', config.vaapiDevice,
+    '-i', 'pipe:0',
+    '-filter_complex', fcParts.join(';'),
+    ...outputArgs,
   ];
+}
 
-  // Scale filter — same for all encoders, applied in software before upload
+// Build per-resolution output args for software encoders (libx264, qsv)
+function buildOutputArgs(r, hlsDir) {
+  const bufsize     = `${parseInt(r.videoBitrate) * 2}k`;
   const scaleFilter = `scale=${r.width}:${r.height}:force_original_aspect_ratio=decrease,pad=${r.width}:${r.height}:(ow-iw)/2:(oh-ih)/2`;
+  const audioArgs   = ['-c:a', 'aac', '-b:a', r.audioBitrate, '-ar', '44100'];
 
   if (resolvedEncoder === 'qsv') {
     return [
@@ -109,30 +136,14 @@ function buildOutputArgs(r, hlsDir) {
       '-c:v', 'h264_qsv',
       '-preset', 'veryfast',
       '-b:v', r.videoBitrate, '-maxrate', r.videoBitrate, '-bufsize', bufsize,
-      '-look_ahead', '0',      // disable lookahead for low-latency live
-      '-async_depth', '1',     // reduce encoder pipeline depth
+      '-look_ahead', '0',
+      '-async_depth', '1',
       ...audioArgs,
-      ...hlsArgs,
+      ...hlsOutputArgs(r, hlsDir),
     ];
   }
 
-  if (resolvedEncoder === 'vaapi') {
-    // VAAPI H264 requires dimensions aligned to multiples of 16
-    const snap16 = n => Math.floor(n / 16) * 16;
-    const vw = snap16(r.width);
-    const vh = snap16(r.height);
-    const vaapiScale = `scale=${vw}:${vh}:force_original_aspect_ratio=decrease,pad=${vw}:${vh}:(ow-iw)/2:(oh-ih)/2`;
-    return [
-      '-map', '0:v:0', '-map', '0:a:0',
-      '-vf', `${vaapiScale},format=nv12,hwupload=extra_hw_frames=64`,
-      '-c:v', 'h264_vaapi',
-      '-b:v', r.videoBitrate, '-maxrate', r.videoBitrate, '-bufsize', bufsize,
-      ...audioArgs,
-      ...hlsArgs,
-    ];
-  }
-
-  // libx264 (software) — use all available CPU threads
+  // libx264
   return [
     '-map', '0:v:0', '-map', '0:a:0',
     '-c:v', 'libx264',
@@ -142,7 +153,7 @@ function buildOutputArgs(r, hlsDir) {
     '-b:v', r.videoBitrate, '-maxrate', r.videoBitrate, '-bufsize', bufsize,
     '-vf', scaleFilter,
     ...audioArgs,
-    ...hlsArgs,
+    ...hlsOutputArgs(r, hlsDir),
   ];
 }
 
@@ -180,16 +191,14 @@ function startTranscoding(streamId, inputStream) {
   }
   fs.writeFileSync(getMasterPlaylistPath(streamId), buildMasterPlaylist());
 
-  const outputArgs = config.resolutions.flatMap(r =>
-    buildOutputArgs(r, getStreamHlsDir(streamId, r.name))
-  );
-
-  const ffmpegArgs = [
-    '-loglevel', 'warning',
-    ...globalInputArgs(),
-    '-i', 'pipe:0',
-    ...outputArgs,
-  ];
+  const ffmpegArgs = resolvedEncoder === 'vaapi'
+    ? buildVaapiArgs(streamId)
+    : [
+        '-loglevel', 'warning',
+        ...(resolvedEncoder === 'qsv' ? ['-init_hw_device', 'qsv=hw', '-filter_hw_device', 'hw'] : []),
+        '-i', 'pipe:0',
+        ...config.resolutions.flatMap(r => buildOutputArgs(r, getStreamHlsDir(streamId, r.name))),
+      ];
 
   const ffmpeg = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'inherit', 'inherit'] });
 
