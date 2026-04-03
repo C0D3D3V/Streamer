@@ -27,6 +27,9 @@ fs.mkdirSync(config.streamsDir, { recursive: true });
 const app = express();
 const server = http.createServer(app);
 
+// Trust reverse proxy (nginx/traefik) so secure cookies work behind TLS termination
+app.set('trust proxy', 1);
+
 // ── Session ──────────────────────────────────────────────────────────────────
 const SQLiteStore = require('connect-sqlite3')(session);
 const sessionMiddleware = session({
