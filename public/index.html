@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Streamer</title>
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  .welcome-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 57px);
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .welcome-icon {
+    width: 72px;
+    height: 72px;
+    background: var(--accent);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .welcome-icon svg {
+    width: 40px;
+    height: 40px;
+    fill: #fff;
+  }
+  .welcome-wrap h1 {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .welcome-wrap p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 420px;
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+  .welcome-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .divider {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    max-width: 640px;
+    margin-top: 56px;
+    width: 100%;
+  }
+  .feature-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 16px;
+    text-align: left;
+  }
+  .feature-card .feature-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .feature-card .feature-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .feature-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <span class="logo">Streamer</span>
+    <nav id="nav-links"></nav>
+    <span id="user-name" class="user-chip"></span>
+    <span id="nav-auth"></span>
+  </header>
+
+  <main class="welcome-wrap">
+    <div class="welcome-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    </div>
+    <h1>Streamer</h1>
+    <p>Live streaming and video archive platform. Stream, record, and share — all in one place.</p>
+    <div class="welcome-actions">
+      <a href="/auth/login" class="btn btn-primary btn-lg" id="btn-login">Sign in</a>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-title"><span class="feature-dot"></span>Live Streaming</div>
+        <div class="feature-desc">Ingest live video and broadcast it via HLS with adaptive bitrate.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-title"><span class="feature-dot"></span>Archive</div>
+        <div class="feature-desc">Recordings are stored automatically and available on demand.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-title"><span class="feature-dot"></span>Secure Sharing</div>
+        <div class="feature-desc">Share streams via password-protected links with guests.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-title"><span class="feature-dot"></span>MP4 Export</div>
+        <div class="feature-desc">Download any recording as an MP4 file with one click.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (async () => {
+    try {
+      const res = await fetch('/auth/me');
+      if (res.ok) {
+        const user = await res.json();
+        document.getElementById('user-name').textContent = user.name || user.email || '';
+        document.getElementById('nav-links').innerHTML = `
+          <a href="/admin/">Admin</a>
+          <a href="/archive/">Archive</a>
+        `;
+        document.getElementById('nav-auth').innerHTML =
+          `<a href="/auth/logout" class="btn btn-sm btn-ghost">Logout</a>`;
+        const btnLogin = document.getElementById('btn-login');
+        btnLogin.textContent = 'Go to Admin';
+        btnLogin.href = '/admin/';
+      }
+    } catch (_) {}
+  })();
+</script>
+</body>
+</html>
