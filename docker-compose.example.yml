@@ -1,33 +1,36 @@
-services:
+sservices:
   streamer:
     build: .
     # image: streamer:latest      # use this after building
     container_name: streamer
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    # ports:
+    #   - "3000:${PORT}"
     volumes:
-      - /your/data/path:/data
+      - /your/data/path:${DATA_DIR}
     devices:
       # Pass Intel iGPU for QSV / VA-API hardware encoding
       - /dev/dri:/dev/dri
     environment:
-      PUID: 1000
-      PGID: 1000
-      UMASK: "022"
-      PORT: 3000
-      DATA_DIR: /data
-      SESSION_SECRET: "change-me-to-a-long-random-string"
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      PORT: ${PORT}
+      DATA_DIR: ${DATA_DIR}
+      SESSION_SECRET: ${SESSION_SECRET}
       NODE_ENV: production
       # Authelia OIDC
-      OIDC_ISSUER: "https://auth.example.com"
-      OIDC_CLIENT_ID: "streamer"
-      OIDC_CLIENT_SECRET: "your-client-secret"
-      OIDC_REDIRECT_URI: "https://streamer.example.com/auth/callback"
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI}
+      # Hardware acceleration
+      FFMPEG_ENCODER: ${FFMPEG_ENCODER}
+      VAAPI_DEVICE: ${VAAPI_DEVICE}
     labels:
       # Traefik example labels (adjust to your setup)
       traefik.enable: "true"
       traefik.http.routers.streamer.rule: "Host(`streamer.example.com`)"
       traefik.http.routers.streamer.entrypoints: "websecure"
       traefik.http.routers.streamer.tls: "true"
-      traefik.http.services.streamer.loadbalancer.server.port: "3000"
+      traefik.http.services.streamer.loadbalancer.server.port: "${PORT}"
