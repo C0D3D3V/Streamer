@@ -31,11 +31,12 @@ function probeVaapi(device) {
   return result.status === 0;
 }
 
-function probeQsv() {
-  // Must init the QSV device explicitly — same as we do during real transcoding
+function probeQsv(device) {
+  // On Linux, QSV must be backed by VAAPI. Init VAAPI first, then QSV on top of it.
   const result = spawnSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error',
-    '-init_hw_device', 'qsv=hw',
+    '-init_hw_device', `vaapi=va:${device}`,
+    '-init_hw_device', 'qsv=hw@va',
     '-f', 'lavfi', '-i', 'color=black:s=64x64:d=0.1',
     '-vf', 'format=nv12',
     '-c:v', 'h264_qsv', '-frames:v', '1',
@@ -58,7 +59,7 @@ async function detectEncoder() {
   // Try QSV first (Intel Quick Sync — lowest CPU usage)
   const hasQsvEncoder = probeEncoder('h264_qsv');
   console.log(`[transcoder] h264_qsv in ffmpeg: ${hasQsvEncoder}`);
-  if (hasQsvEncoder && probeQsv()) {
+  if (hasQsvEncoder && probeQsv(config.vaapiDevice)) {
     console.log('[transcoder] Auto-detected: h264_qsv (Intel Quick Sync)');
     return 'qsv';
   }
@@ -210,7 +211,10 @@ function startTranscoding(streamId, inputStream) {
     ? buildVaapiArgs(streamId)
     : [
         '-loglevel', 'warning',
-        ...(resolvedEncoder === 'qsv' ? ['-init_hw_device', 'qsv=hw', '-filter_hw_device', 'hw'] : []),
+        ...(resolvedEncoder === 'qsv' ? [
+          '-init_hw_device', `vaapi=va:${config.vaapiDevice}`,
+          '-init_hw_device', 'qsv=hw@va',
+        ] : []),
         '-i', 'pipe:0',
         ...config.resolutions.flatMap(r => buildOutputArgs(r, getStreamHlsDir(streamId, r.name))),
       ];
