@@ -33,15 +33,19 @@ function probeVaapi(device) {
 
 function probeQsv(device) {
   // On Linux, QSV must be backed by VAAPI. Init VAAPI first, then QSV on top of it.
+  // Use N outputs to mirror real workload — single-output probes can pass even when
+  // the MFX session limit is hit by concurrent encoders.
+  const n = require('./config').resolutions.length;
+  const outputs = Array.from({ length: n }, () => [
+    '-vf', 'format=nv12', '-c:v', 'h264_qsv', '-frames:v', '1', '-f', 'null', '-',
+  ]).flat();
   const result = spawnSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error',
     '-init_hw_device', `vaapi=va:${device}`,
     '-init_hw_device', 'qsv=hw@va',
-    '-f', 'lavfi', '-i', 'color=black:s=64x64:d=0.1',
-    '-vf', 'format=nv12',
-    '-c:v', 'h264_qsv', '-frames:v', '1',
-    '-f', 'null', '-',
-  ], { encoding: 'utf8', timeout: 5000 });
+    '-f', 'lavfi', '-i', `color=black:s=64x64:d=0.1:r=1`,
+    ...outputs,
+  ], { encoding: 'utf8', timeout: 10000 });
   if (result.status !== 0) {
     console.warn('[transcoder] QSV probe failed:', (result.stderr || '').trim().split('\n').pop());
   }
@@ -199,7 +203,9 @@ function buildMasterPlaylist() {
 
 // ── Transcode ─────────────────────────────────────────────────────────────────
 
-function startTranscoding(streamId, inputStream) {
+const ENCODER_FALLBACK = { qsv: 'vaapi', vaapi: 'libx264' };
+
+function startTranscoding(streamId, inputStream, onHwFailure) {
   const hlsBase = path.join(config.streamsDir, streamId, 'hls');
 
   for (const r of config.resolutions) {
@@ -220,14 +226,23 @@ function startTranscoding(streamId, inputStream) {
       ];
 
   const ffmpeg = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'inherit', 'inherit'] });
+  const encoder = resolvedEncoder;
+  const startedAt = Date.now();
 
   ffmpeg.on('error', (err) => {
     console.error(`[transcoder:${streamId}] FFmpeg error:`, err.message);
   });
 
   ffmpeg.on('exit', (code, signal) => {
-    console.log(`[transcoder:${streamId}] FFmpeg exited code=${code} signal=${signal} encoder=${resolvedEncoder}`);
+    console.log(`[transcoder:${streamId}] FFmpeg exited code=${code} signal=${signal} encoder=${encoder}`);
     activeProcesses.delete(streamId);
+
+    // If a hardware encoder fails within 8 s, downgrade and ask ingest to reconnect
+    if (code !== 0 && ENCODER_FALLBACK[encoder] && (Date.now() - startedAt) < 8000) {
+      resolvedEncoder = ENCODER_FALLBACK[encoder];
+      console.warn(`[transcoder:${streamId}] ${encoder} failed quickly — downgraded to ${resolvedEncoder} for future streams`);
+      onHwFailure?.();
+    }
   });
 
   inputStream.pipe(ffmpeg.stdin);

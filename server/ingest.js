@@ -18,7 +18,12 @@ function handleIngestSocket(ws, streamId) {
   const passThrough = new PassThrough();
   activeStreams.set(streamId, passThrough);
 
-  transcoder.startTranscoding(streamId, passThrough);
+  transcoder.startTranscoding(streamId, passThrough, () => {
+    // Hardware encoder failed — close the socket so the client reconnects immediately
+    // with the now-downgraded encoder. The 3-second finalization timer in ws.on('close')
+    // will be skipped if the client reconnects before it fires.
+    if (ws.readyState === ws.OPEN) ws.close(4001, 'Encoder failure, please reconnect');
+  });
 
   ws.on('message', (data) => {
     if (!passThrough.destroyed) {
