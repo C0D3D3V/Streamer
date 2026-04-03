@@ -117,7 +117,10 @@ function buildVaapiArgs(streamId) {
   const n = config.resolutions.length;
 
   const splitTags = config.resolutions.map((_, i) => `[vsplit${i}]`).join('');
-  const fcParts = [`[0:v]format=nv12,hwupload=extra_hw_frames=64,split=${n}${splitTags}`];
+  // crop to nearest multiple of 16 before hwupload — VAAPI requires 16-aligned
+  // dimensions and will produce error 24 (VA_STATUS_ERROR_ENCODING_ERROR) otherwise.
+  // crop is lossless (no rescaling) and preserves aspect ratio.
+  const fcParts = [`[0:v]crop=trunc(iw/16)*16:trunc(ih/16)*16,format=nv12,hwupload=extra_hw_frames=64,split=${n}${splitTags}`];
   for (let i = 0; i < n; i++) {
     const r = config.resolutions[i];
     const long = snap16(Math.max(r.width, r.height));
