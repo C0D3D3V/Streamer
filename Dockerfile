@@ -11,30 +11,33 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Build deps needed by node-gyp for native modules like better-sqlite3
+# Build deps - C++20 compiler + node-gyp deps
 RUN apk add --no-cache --virtual .build-deps \
     python3 \
     py3-setuptools \
     make \
     g++ \
-    pkgconfig
+    gcc \
+    pkgconfig \
+    libstdc++
+
+# Force C++20 standard for Node 24 V8 headers
+ENV CXXFLAGS="-std=c++20"
 
 COPY package.json package-lock.json* ./
 ENV PYTHON=/usr/bin/python3
 RUN npm install --omit=dev
 
-# Remove build deps after native modules are compiled
+# Clean build deps
 RUN apk del .build-deps
 
 # Copy source
 COPY . .
 
-# Entrypoint handles PUID/PGID/UMASK
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
-
 VOLUME ["/data"]
 
 ENTRYPOINT ["docker-entrypoint.sh"]
