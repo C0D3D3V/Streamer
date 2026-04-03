@@ -117,12 +117,16 @@ function buildOutputArgs(r, hlsDir) {
   }
 
   if (resolvedEncoder === 'vaapi') {
+    // VAAPI H264 requires dimensions aligned to multiples of 16
+    const snap16 = n => Math.floor(n / 16) * 16;
+    const vw = snap16(r.width);
+    const vh = snap16(r.height);
+    const vaapiScale = `scale=${vw}:${vh}:force_original_aspect_ratio=decrease,pad=${vw}:${vh}:(ow-iw)/2:(oh-ih)/2`;
     return [
       '-map', '0:v:0', '-map', '0:a:0',
-      '-vf', `${scaleFilter},format=nv12,hwupload`,
+      '-vf', `${vaapiScale},format=nv12,hwupload=extra_hw_frames=64`,
       '-c:v', 'h264_vaapi',
       '-b:v', r.videoBitrate, '-maxrate', r.videoBitrate, '-bufsize', bufsize,
-      '-rc_mode', 'VBR',
       ...audioArgs,
       ...hlsArgs,
     ];

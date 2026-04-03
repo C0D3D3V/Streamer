@@ -98,12 +98,16 @@ function deleteShareLink(id) {
   return get().prepare('DELETE FROM share_links WHERE id = ?').run(id);
 }
 
+function deleteStream(id) {
+  return get().prepare('DELETE FROM streams WHERE id = ?').run(id);
+}
+
 function slugExists(slug) {
   return !!get().prepare('SELECT 1 FROM share_links WHERE slug = ?').get(slug);
 }
 
 module.exports = {
   init, get,
-  createStream, endStream, getStream, listStreams, setMp4Status,
+  createStream, endStream, getStream, listStreams, setMp4Status, deleteStream,
   createShareLink, getShareBySlug, getSharesByStream, deleteShareLink, slugExists,
 };

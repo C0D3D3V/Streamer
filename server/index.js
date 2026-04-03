@@ -152,6 +152,45 @@ adminRouter.delete('/share/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Stream disk size
+adminRouter.get('/streams/:id/size', (req, res) => {
+  const stream = db.getStream(req.params.id);
+  if (!stream) return res.status(404).json({ error: 'Not found' });
+  const dir = path.join(config.streamsDir, req.params.id);
+  let bytes = 0;
+  try {
+    const walk = (d) => {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const full = path.join(d, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else bytes += fs.statSync(full).size;
+      }
+    };
+    if (fs.existsSync(dir)) walk(dir);
+    if (stream.mp4_path && fs.existsSync(stream.mp4_path)) {
+      // mp4 may live outside stream dir; avoid double-counting if inside
+      const rel = path.relative(dir, stream.mp4_path);
+      if (rel.startsWith('..')) bytes += fs.statSync(stream.mp4_path).size;
+    }
+  } catch {}
+  res.json({ bytes });
+});
+
+// Delete stream (files + DB record)
+adminRouter.delete('/streams/:id', (req, res) => {
+  const stream = db.getStream(req.params.id);
+  if (!stream) return res.status(404).json({ error: 'Not found' });
+  if (ingest.isStreaming(req.params.id)) {
+    return res.status(409).json({ error: 'Stream is currently live' });
+  }
+  // Delete files
+  const dir = path.join(config.streamsDir, req.params.id);
+  fs.rmSync(dir, { recursive: true, force: true });
+  if (stream.mp4_path) fs.rmSync(stream.mp4_path, { force: true });
+  db.deleteStream(req.params.id);
+  res.json({ ok: true });
+});
+
 // MP4 status (poll endpoint)
 adminRouter.get('/streams/:id/mp4status', (req, res) => {
   const s = db.getStream(req.params.id);

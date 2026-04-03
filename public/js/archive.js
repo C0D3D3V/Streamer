@@ -45,6 +45,7 @@ function renderArchive(streams) {
         <a href="/viewer/?id=${s.id}" target="_blank" class="btn btn-sm">Watch</a>
         <button class="btn btn-sm" onclick="openShareModal('${s.id}')">Share</button>
         ${downloadBtn}
+        <button class="btn btn-sm btn-danger" onclick="deleteStream('${s.id}')">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -113,6 +114,24 @@ document.getElementById('btn-modal-close').addEventListener('click', () => {
   document.getElementById('share-modal').classList.add('hidden');
   shareTargetStreamId = null;
 });
+
+// ── Delete stream ─────────────────────────────────────────────────────────────
+async function deleteStream(id) {
+  const sizeRes = await fetch(`/api/admin/streams/${id}/size`).catch(() => null);
+  const { bytes = 0 } = sizeRes && sizeRes.ok ? await sizeRes.json() : {};
+  const label = bytes > 0 ? formatBytes(bytes) : 'unknown size';
+  if (!confirm(`Delete this recording and all its files (${label})? This cannot be undone.`)) return;
+  const res = await fetch(`/api/admin/streams/${id}`, { method: 'DELETE' });
+  if (!res.ok) { alert((await res.json()).error || 'Delete failed'); return; }
+  await loadArchive();
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDuration(secs) {

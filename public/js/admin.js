@@ -53,6 +53,7 @@ function renderStreamsList(streams) {
         <a href="/viewer/?id=${s.id}" target="_blank" class="btn btn-sm">Watch</a>
         <button class="btn btn-sm" onclick="openSharePanel('${s.id}')">Share</button>
         ${mp4}
+        <button class="btn btn-sm btn-danger" onclick="deleteStream('${s.id}', ${!!s.ended_at})">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -159,6 +160,32 @@ document.getElementById('btn-modal-close').addEventListener('click', () => {
 
 function copyUrl(path) {
   navigator.clipboard.writeText(`${location.origin}${path}`).catch(() => {});
+}
+
+// ── Delete stream ─────────────────────────────────────────────────────────────
+async function deleteStream(id, isEnded) {
+  if (!isEnded) {
+    alert('Stop the stream before deleting it.');
+    return;
+  }
+  const sizeRes = await fetch(`/api/admin/streams/${id}/size`).catch(() => null);
+  const { bytes = 0 } = sizeRes && sizeRes.ok ? await sizeRes.json() : {};
+  const label = bytes > 0 ? formatBytes(bytes) : 'unknown size';
+  if (!confirm(`Delete this stream and all its files (${label})? This cannot be undone.`)) return;
+  const res = await fetch(`/api/admin/streams/${id}`, { method: 'DELETE' });
+  if (!res.ok) { alert((await res.json()).error || 'Delete failed'); return; }
+  if (activeStreamId === id) {
+    activeStreamId = null;
+    document.getElementById('active-panel').classList.add('hidden');
+  }
+  await loadStreams();
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
