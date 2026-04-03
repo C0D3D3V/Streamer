@@ -46,7 +46,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('/auth/login', (req, res) => {
   const url = auth.buildAuthUrl(req);
   if (!url) return res.status(503).send('OIDC not configured');
-  res.redirect(url);
+  req.session.save(() => res.redirect(url));
 });
 
 app.get('/auth/callback', async (req, res) => {
