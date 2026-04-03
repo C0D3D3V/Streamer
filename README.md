@@ -21,7 +21,7 @@ A self-hosted live streaming and video archive platform. Ingest video over WebSo
 - Docker + Docker Compose
 - An OIDC provider (Authelia recommended)
 - A reverse proxy with HTTPS (Traefik example included)
-- *(Optional)* Intel GPU for hardware-accelerated encoding
+- _(Optional)_ Intel GPU for hardware-accelerated encoding
 
 ---
 
@@ -60,20 +60,20 @@ The app will be available at the hostname configured in your reverse proxy.
 
 All settings are provided via environment variables (`.env`):
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3000` | Port the server listens on |
-| `DATA_DIR` | `/data` | Directory for the database and stream files |
-| `SESSION_SECRET` | — | **Required.** Long random string for signing sessions |
-| `OIDC_ISSUER` | — | Base URL of your OIDC provider (e.g. `https://auth.example.com`) |
-| `OIDC_CLIENT_ID` | — | Client ID registered in your OIDC provider |
-| `OIDC_CLIENT_SECRET` | — | Client secret from your OIDC provider |
-| `OIDC_REDIRECT_URI` | — | Full callback URL (e.g. `https://streamer.example.com/auth/callback`) |
-| `FFMPEG_ENCODER` | `auto` | Encoder: `auto`, `qsv`, `vaapi`, or `libx264` |
-| `VAAPI_DEVICE` | `/dev/dri/renderD128` | VA-API device node (only needed when `FFMPEG_ENCODER=vaapi`) |
-| `PUID` | `1000` | User ID to run the process as inside the container |
-| `PGID` | `1000` | Group ID to run the process as inside the container |
-| `UMASK` | `022` | File creation mask |
+| Variable             | Default               | Description                                                           |
+| -------------------- | --------------------- | --------------------------------------------------------------------- |
+| `PORT`               | `3000`                | Port the server listens on                                            |
+| `DATA_DIR`           | `/data`               | Directory for the database and stream files                           |
+| `SESSION_SECRET`     | —                     | **Required.** Long random string for signing sessions                 |
+| `OIDC_ISSUER`        | —                     | Base URL of your OIDC provider (e.g. `https://auth.example.com`)      |
+| `OIDC_CLIENT_ID`     | —                     | Client ID registered in your OIDC provider                            |
+| `OIDC_CLIENT_SECRET` | —                     | Client secret from your OIDC provider                                 |
+| `OIDC_REDIRECT_URI`  | —                     | Full callback URL (e.g. `https://streamer.example.com/auth/callback`) |
+| `FFMPEG_ENCODER`     | `auto`                | Encoder: `auto`, `qsv`, `vaapi`, or `libx264`                         |
+| `VAAPI_DEVICE`       | `/dev/dri/renderD128` | VA-API device node (only needed when `FFMPEG_ENCODER=vaapi`)          |
+| `PUID`               | `1000`                | User ID to run the process as inside the container                    |
+| `PGID`               | `1000`                | Group ID to run the process as inside the container                   |
+| `UMASK`              | `022`                 | File creation mask                                                    |
 
 Generate a secure session secret with:
 
@@ -115,7 +115,7 @@ identity_providers:
         client_name: Streamer
         client_secret: "$pbkdf2-sha512$..." # hashed secret from step 1
         public: false
-        authorization_policy: one_factor  # or two_factor
+        authorization_policy: one_factor # or two_factor
         require_pkce: false
         redirect_uris:
           - https://streamer.example.com/auth/callback
@@ -127,7 +127,7 @@ identity_providers:
           - code
         grant_types:
           - authorization_code
-        token_endpoint_auth_method: client_secret_post
+        token_endpoint_auth_method: client_secret_basic
         userinfo_signed_response_alg: none
 ```
 
@@ -155,12 +155,12 @@ The issuer URL must be the root of your Authelia instance. Streamer discovers th
 
 Set `FFMPEG_ENCODER` in `.env`:
 
-| Value | Description |
-|---|---|
-| `auto` | Detect the best available encoder at startup |
-| `qsv` | Intel Quick Sync (lowest latency, requires Intel iGPU) |
-| `vaapi` | VA-API (good compatibility on Linux with Intel/AMD) |
-| `libx264` | Software encoding (no GPU required, higher CPU usage) |
+| Value     | Description                                            |
+| --------- | ------------------------------------------------------ |
+| `auto`    | Detect the best available encoder at startup           |
+| `qsv`     | Intel Quick Sync (lowest latency, requires Intel iGPU) |
+| `vaapi`   | VA-API (good compatibility on Linux with Intel/AMD)    |
+| `libx264` | Software encoding (no GPU required, higher CPU usage)  |
 
 For GPU access, pass the DRI device to the container:
 
@@ -196,6 +196,7 @@ HTTPS is required — session cookies are marked `Secure` in production.
 Navigate to `https://streamer.example.com/admin/`. You will be redirected to Authelia to log in. Any user that successfully authenticates is granted admin access.
 
 From the admin panel you can:
+
 - Create and manage streams
 - Start/stop live ingest
 - View the archive and download MP4 recordings
