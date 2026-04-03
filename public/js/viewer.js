@@ -144,12 +144,15 @@ function checkResumePosition() {
 }
 
 btnResume && btnResume.addEventListener('click', () => {
-  resumeBar.classList.add('hidden');
-  video.addEventListener('canplay', () => {
-    video.currentTime = savedPosition;
-    video.play().catch(() => {});
-  }, { once: true });
+  const pos = savedPosition;
   savedPosition = null;
+  resumeBar.classList.add('hidden');
+  const seek = () => { video.currentTime = pos; video.play().catch(() => {}); };
+  if (video.readyState >= 2) {
+    seek();
+  } else {
+    video.addEventListener('canplay', seek, { once: true });
+  }
 });
 
 btnDismiss && btnDismiss.addEventListener('click', () => {
