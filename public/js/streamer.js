@@ -40,6 +40,8 @@ async function startPreview() {
   const quality = qualitySelect.value;
   const facing = cameraSelect.value;
   const heights = { '1080': 1080, '720': 720, '480': 480 };
+  const h = heights[quality];
+  const isLandscape = window.innerWidth > window.innerHeight;
 
   if (mediaStream) {
     mediaStream.getTracks().forEach(t => t.stop());
@@ -50,7 +52,8 @@ async function startPreview() {
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: facing,
-        height: { ideal: heights[quality] },
+        width:  { ideal: isLandscape ? Math.round(h * 16 / 9) : h },
+        height: { ideal: isLandscape ? h : Math.round(h * 16 / 9) },
         frameRate: { ideal: 30 },
       },
       audio: {
