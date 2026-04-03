@@ -3,3 +3,4 @@ data/
 .env
 docker-compose.yml
 *.sqlite
+app-tube/
