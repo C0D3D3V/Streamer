@@ -1,4 +1,4 @@
-sservices:
+services:
   streamer:
     build: .
     # image: streamer:latest      # use this after building
