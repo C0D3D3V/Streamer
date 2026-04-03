@@ -32,13 +32,18 @@ function probeVaapi(device) {
 }
 
 function probeQsv() {
+  // Must init the QSV device explicitly — same as we do during real transcoding
   const result = spawnSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error',
+    '-init_hw_device', 'qsv=hw',
     '-f', 'lavfi', '-i', 'color=black:s=64x64:d=0.1',
     '-vf', 'format=nv12',
     '-c:v', 'h264_qsv', '-frames:v', '1',
     '-f', 'null', '-',
   ], { encoding: 'utf8', timeout: 5000 });
+  if (result.status !== 0) {
+    console.warn('[transcoder] QSV probe failed:', (result.stderr || '').trim().split('\n').pop());
+  }
   return result.status === 0;
 }
 
@@ -51,13 +56,17 @@ async function detectEncoder() {
   }
 
   // Try QSV first (Intel Quick Sync — lowest CPU usage)
-  if (probeEncoder('h264_qsv') && probeQsv()) {
+  const hasQsvEncoder = probeEncoder('h264_qsv');
+  console.log(`[transcoder] h264_qsv in ffmpeg: ${hasQsvEncoder}`);
+  if (hasQsvEncoder && probeQsv()) {
     console.log('[transcoder] Auto-detected: h264_qsv (Intel Quick Sync)');
     return 'qsv';
   }
 
   // Try VAAPI (VA-API on Linux — also hardware, most Intel iGPUs support this)
-  if (probeEncoder('h264_vaapi') && probeVaapi(config.vaapiDevice)) {
+  const hasVaapiEncoder = probeEncoder('h264_vaapi');
+  console.log(`[transcoder] h264_vaapi in ffmpeg: ${hasVaapiEncoder}`);
+  if (hasVaapiEncoder && probeVaapi(config.vaapiDevice)) {
     console.log(`[transcoder] Auto-detected: h264_vaapi (${config.vaapiDevice})`);
     return 'vaapi';
   }

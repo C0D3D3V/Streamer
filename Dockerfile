@@ -7,6 +7,7 @@ RUN sed -i 's/Components: main$/Components: main contrib non-free non-free-firmw
         ffmpeg \
         intel-media-va-driver-non-free \
         libvpl2 \
+        libmfx1 \
         gosu \
     && rm -rf /var/lib/apt/lists/*
 
