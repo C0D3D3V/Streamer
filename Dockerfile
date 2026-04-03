@@ -18,23 +18,22 @@ RUN apk add --no-cache --virtual .build-deps \
     g++ \
     pkgconfig
 
-# Make npm/node-gyp explicitly use Python 3
-ENV PYTHON=/usr/bin/python3
-
 COPY package.json package-lock.json* ./
-RUN npm config set python /usr/bin/python3 \
-    && npm install --omit=dev \
-    && npm config delete python
+ENV PYTHON=/usr/bin/python3
+RUN npm install --omit=dev
 
 # Remove build deps after native modules are compiled
 RUN apk del .build-deps
 
+# Copy source
 COPY . .
 
+# Entrypoint handles PUID/PGID/UMASK
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
+
 VOLUME ["/data"]
 
 ENTRYPOINT ["docker-entrypoint.sh"]
